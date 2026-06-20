@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>工作记录系统</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:#f0f2f5;font-size:14px}
+.header{background:#fff;border-bottom:1px solid #e8e8e8;padding:0 24px;height:56px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 1px 4px rgba(0,0,0,.08);position:fixed;top:0;left:0;right:0;z-index:100}
+.header h1{font-size:18px;font-weight:600;color:#1a1a1a;display:flex;align-items:center;gap:8px}
+.header .user-info{color:#666;font-size:14px}
+.body-wrap{display:flex;margin-top:56px;height:calc(100vh - 56px)}
+.sidebar{width:180px;min-width:180px;background:#fff;border-right:1px solid #e8e8e8;overflow-y:auto}
+.nav-item{padding:13px 20px;cursor:pointer;font-size:14px;color:#333;display:flex;align-items:center;gap:8px;border-left:3px solid transparent;transition:all .2s}
+.nav-item:hover{background:#f5f7fa;color:#409eff}
+.nav-item.active{background:#ecf5ff;color:#409eff;border-left-color:#409eff;font-weight:500}
+.main{flex:1;padding:20px;overflow-y:auto}
+.card{background:#fff;border-radius:8px;padding:20px;margin-bottom:16px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.card-title{font-size:16px;font-weight:600;margin-bottom:16px;color:#1a1a1a}
+.stat-row{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:20px}
+.stat-box{background:#fff;border-radius:8px;padding:16px;box-shadow:0 1px 3px rgba(0,0,0,.06);text-align:center}
+.stat-box .label{font-size:13px;color:#999;margin-bottom:6px}
+.stat-box .value{font-size:26px;font-weight:600}
+.blue{color:#409eff}.green{color:#67c23a}.orange{color:#e6a23c}.red{color:#f56c6c}
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+table th{background:#fafafa;color:#333;font-weight:600;padding:10px 8px;text-align:left;border-bottom:2px solid #e8e8e8;white-space:nowrap;position:sticky;top:0}
+table td{padding:8px;border-bottom:1px solid #f0f0f0;vertical-align:middle}
+table tr:hover td{background:#f5f7fa}
+.btn{display:inline-block;padding:5px 14px;border-radius:4px;font-size:13px;cursor:pointer;border:1px solid #dcdfe6;background:#fff;color:#606266;transition:all .2s;line-height:1.5;white-space:nowrap}
+.btn:hover{border-color:#409eff;color:#409eff}
+.btn-primary{background:#409eff;color:#fff;border-color:#409eff}
+.btn-primary:hover{background:#66b1ff;border-color:#66b1ff;color:#fff}
+.btn-danger{color:#f56c6c;border-color:#f56c6c}
+.btn-danger:hover{background:#f56c6c;color:#fff}
+.btn-sm{padding:3px 8px;font-size:12px}
+.btn-success{background:#67c23a;color:#fff;border-color:#67c23a}
+.btn-warning{background:#e6a23c;color:#fff;border-color:#e6a23c}
+.btn-warning:hover{background:#ebb563}
+.tag{display:inline-block;padding:2px 8px;border-radius:3px;font-size:12px;line-height:1.6;white-space:nowrap}
+.tag-done{background:#f0f9eb;color:#67c23a}
+.tag-doing{background:#ecf5ff;color:#409eff}
+.tag-blocked{background:#fef0f0;color:#f56c6c}
+.tag-cancelled{background:#f4f4f5;color:#909399}
+.tag-pending{background:#fdf6ec;color:#e6a23c}
+.tag-high{background:#fef0f0;color:#f56c6c}
+.tag-normal{background:#f0f9eb;color:#67c23a}
+.tag-low{background:#f4f4f5;color:#909399}
+.tag-urgent{background:#f56c6c;color:#fff}
+.tag-item{background:#ecf5ff;color:#409eff;margin-right:4px;margin-bottom:2px}
+.filter-bar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px;align-items:center}
+.filter-bar input,.filter-bar select{padding:5px 10px;border:1px solid #dcdfe6;border-radius:4px;font-size:13px;outline:none}
+.filter-bar input:focus,.filter-bar select:focus{border-color:#409eff}
+.modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.5);z-index:1000;display:flex;align-items:center;justify-content:center}
+.modal{background:#fff;border-radius:8px;padding:24px;width:640px;max-width:90vw;max-height:85vh;overflow-y:auto;box-shadow:0 4px 20px rgba(0,0,0,.15)}
+.modal h3{font-size:16px;font-weight:600;margin-bottom:20px;color:#1a1a1a}
+.form-group{margin-bottom:14px}
+.form-group label{display:block;font-size:13px;color:#606266;margin-bottom:5px;font-weight:500}
+.form-group label .req{color:#f56c6c}
+.form-group input,.form-group select,.form-group textarea{width:100%;padding:7px 10px;border:1px solid #dcdfe6;border-radius:4px;font-size:13px;outline:none;font-family:inherit}
+.form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:#409eff}
+.form-group textarea{min-height:60px;resize:vertical}
+.form-row{display:flex;gap:12px}
+.form-row .form-group{flex:1}
+.modal-footer{display:flex;justify-content:flex-end;gap:10px;margin-top:20px}
+.report-content{white-space:pre-wrap;line-height:1.8;font-size:14px;color:#333;padding:16px;background:#fafafa;border-radius:6px;border:1px solid #eee;min-height:200px}
+.empty-tip{text-align:center;padding:40px;color:#999;font-size:14px}
+.page-nav{display:flex;justify-content:center;align-items:center;gap:8px;margin-top:16px}
+.page-nav span{font-size:13px;color:#666}
+.section-tabs{display:flex;gap:0;margin-bottom:16px;border-bottom:2px solid #e8e8e8}
+.section-tab{padding:8px 20px;cursor:pointer;font-size:14px;color:#666;border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .2s}
+.section-tab:hover{color:#409eff}
+.section-tab.active{color:#409eff;border-bottom-color:#409eff;font-weight:500}
+.sap-fields{background:#fafbfc;border:1px solid #ebeef5;border-radius:6px;padding:12px;margin-top:8px}
+.sap-fields .form-row{margin-bottom:0}
+.overdue{color:#f56c6c;font-weight:600}
+.near-due{color:#e6a23c;font-weight:600}
+td.remain-cell{font-size:13px}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>📋 工作记录系统</h1>
+  <div class="user-info" id="userInfo">加载中...</div>
+</div>
+
+<div class="body-wrap">
+  <div class="sidebar">
+    <div class="nav-item active" data-page="dashboard">📊 概览</div>
+    <div class="nav-item" data-page="logs">📝 每日工作</div>
+    <div class="nav-item" data-page="tasks">✅ 任务项</div>
+    <div class="nav-item" data-page="backlog">📋 待开发项</div>
+    <div class="nav-item" data-page="categories">🏷️ 分类配置</div>
+    <div class="nav-item" data-page="reports">📄 周报</div>
+  </div>
+  <div class="main" id="mainContent"></div>
+</div>
+
+<script>
+// ===== 全局 =====
+var API = '/api';
+var currentUserId = 1;
+var currentUser = null;
+var currentPage = 'dashboard';
+var allCategories = [];
+var allTasks = [];
+var logPage = 1, logTotal = 0;
+
+// 枚举选项
+var WORK_TYPES = ['Bug','Report','功能','增强','接口','学习','培训','打印','问题排查'];
+var CHANGE_TYPES = ['新增','修改'];
+var TASK_CATEGORIES = ['运维工单','Bug工单','临时任务','迭代项','SRM项目','培训','紧急插入临时任务','按需采购','年度任务','绩效','STO项目'];
+var TASK_STATUSES = ['已完成','未完成','挂起','取消'];
+var LOG_STATUSES = [{v:'doing',l:'进行中'},{v:'done',l:'已完成'},{v:'blocked',l:'阻塞'},{v:'cancelled',l:'已取消'}];
+
+// ===== API =====
+function apiGet(path, params) {
+  var url = API + path;
+  if (params) {
+    var qs = [];
+    for (var k in params) {
+      if (params[k] !== null && params[k] !== undefined && params[k] !== '') qs.push(k + '=' + encodeURIComponent(params[k]));
+    }
+    if (qs.length) url += '?' + qs.join('&');
+  }
+  return fetch(url, { headers: { 'X-User-Id': String(currentUserId) } }).then(function(r) { return r.json(); });
+}
+function apiPost(path, data) {
+  return fetch(API + path, {
+    method: 'POST',
+    headers: { 'X-User-Id': String(currentUserId), 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  }).then(function(r) { return r.json(); });
+}
+function apiPut(path, data) {
+  return fetch(API + path, {
+    method: 'PUT',
+    headers: { 'X-User-Id': String(currentUserId), 'Content-Type': 'application/json' },
+    body: JSON.stringify(data)
+  }).then(function(r) { return r.json(); });
+}
+function apiDel(path) {
+  return fetch(API + path, {
+    method: 'DELETE',
+    headers: { 'X-User-Id': String(currentUserId) }
+  }).then(function(r) { return r.json(); });
+}
+
+function tip(msg, type) {
+  var el = document.createElement('div');
+  var bg = type === 'error' ? '#f56c6c' : type === 'warn' ? '#e6a23c' : '#67c23a';
+  el.style.cssText = 'position:fixed;top:20px;left:50%;transform:translateX(-50%);padding:10px 24px;border-radius:4px;font-size:14px;z-index:9999;color:#fff;background:' + bg;
+  el.textContent = msg;
+  document.body.appendChild(el);
+  setTimeout(function() { el.remove(); }, 2500);
+}
+
+function esc(s) {
+  if (s == null) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function statusTag(s) {
+  var m = {done:['已完成','tag-done'],doing:['进行中','tag-doing'],blocked:['阻塞','tag-blocked'],cancelled:['已取消','tag-cancelled']};
+  var t = m[s] || [s,''];
+  return '<span class="tag ' + t[1] + '">' + esc(t[0]) + '</span>';
+}
+function taskStatusTag(s) {
+  var m = {'已完成':['已完成','tag-done'],'未完成':['未完成','tag-doing'],'挂起':['挂起','tag-pending'],'取消':['取消','tag-cancelled']};
+  var t = m[s] || [s,''];
+  return '<span class="tag ' + t[1] + '">' + esc(t[0]) + '</span>';
+}
+function workTypeTag(s) {
+  if (!s) return '';
+  var m = {'Bug':'tag-blocked','Report':'tag-doing','功能':'tag-done','增强':'tag-pending','接口':'tag-item','学习':'tag-normal','培训':'tag-normal','打印':'tag-low','问题排查':'tag-blocked'};
+  return '<span class="tag ' + (m[s]||'tag-item') + '">' + esc(s) + '</span>';
+}
+function changeTypeTag(s) {
+  if (!s) return '';
+  var m = {'新增':'tag-done','修改':'tag-doing'};
+  return '<span class="tag ' + (m[s]||'tag-item') + '">' + esc(s) + '</span>';
+}
+function remainingTag(days) {
+  if (days == null) return '';
+  if (days < 0) return '<span class="overdue">逾期' + Math.abs(days) + '天</span>';
+  if (days === 0) return '<span class="near-due">今天到期</span>';
+  if (days <= 3) return '<span class="near-due">剩余' + days + '天</span>';
+  return '<span style="color:#67c23a">剩余' + days + '天</span>';
+}
+
+function fmtDate(d) {
+  if (!d) return '';
+  return d.substring(0, 10);
+}
+
+// ===== 导航 =====
+document.querySelectorAll('.nav-item').forEach(function(el) {
+  el.addEventListener('click', function() {
+    currentPage = this.dataset.page;
+    document.querySelectorAll('.nav-item').forEach(function(n) { n.classList.remove('active'); });
+    this.classList.add('active');
+    renderPage();
+  });
+});
+
+function renderPage() {
+  var el = document.getElementById('mainContent');
+  switch(currentPage) {
+    case 'dashboard': renderDashboard(el); break;
+    case 'logs': renderLogs(el); break;
+    case 'tasks': renderTasks(el); break;
+    case 'backlog': renderBacklog(el); break;
+    case 'categories': renderCategories(el); break;
+    case 'reports': renderReports(el); break;
+  }
+}
+
+// ===== 初始化 =====
+async function init() {
+  try {
+    var res = await apiGet('/users/me');
+    if (res.code === 0 && res.data) {
+      currentUser = res.data;
+      currentUserId = res.data.id;
+      document.getElementById('userInfo').textContent = res.data.display_name + ' (' + res.data.role + ')';
+    }
+    await loadCategories();
+    await loadAllTasks();
+    renderPage();
+  } catch(e) {
+    document.getElementById('userInfo').textContent = '用户1 (admin)';
+    renderPage();
+  }
+}
+
+async function loadCategories() {
+  var res = await apiGet('/categories');
+  allCategories = res.code === 0 && res.data ? res.data : [];
+}
+async function loadAllTasks() {
+  var res = await apiGet('/tasks', {page_size: 200});
+  var all = res.code === 0 && res.data ? res.data.items || [] : [];
+  // 只保留待办任务（未完成+挂起），供工作记录下拉使用
+  allTasks = all.filter(function(t) { return t.status === '未完成'; });
+}
+
+// ===== 概览 =====
+async function renderDashboard(el) {
+  el.innerHTML = '<div class="stat-row" id="dashStats"><div class="stat-box"><div class="label">加载中...</div></div></div>' +
+    '<div class="card"><div class="card-title">📊 本周工作概览</div><div id="dashWeekLogs" class="empty-tip">加载中...</div></div>' +
+    '<div class="card"><div class="card-title">⚠️ 即将到期任务</div><div id="dashUrgent" class="empty-tip">加载中...</div></div>';
+
+  // 今日统计
+  var today = new Date().toISOString().split('T')[0];
+  var todayRes = await apiGet('/logs', {date_from: today, date_to: today, page_size: 1});
+  var weekRes = await apiGet('/logs/summary', {group_by: 'date'});
+
+  var todayCount = todayRes.code===0 ? todayRes.data.total : 0;
+  var totalRecords = weekRes.code===0 ? weekRes.data.total_records : 0;
+  var totalHours = weekRes.code===0 ? weekRes.data.total_hours : 0;
+
+  // 任务统计
+  var taskRes = await apiGet('/tasks/stats');
+  var taskTotal = taskRes.code===0 ? taskRes.data.pending_count : 0;
+  var urgentCount = taskRes.code===0 ? taskRes.data.urgent_count : 0;
+
+  document.getElementById('dashStats').innerHTML =
+    '<div class="stat-box"><div class="label">今日记录</div><div class="value blue">' + todayCount + '</div></div>' +
+    '<div class="stat-box"><div class="label">总工时</div><div class="value green">' + totalHours + 'h</div></div>' +
+    '<div class="stat-box"><div class="label">总记录数</div><div class="value orange">' + totalRecords + '</div></div>' +
+    '<div class="stat-box"><div class="label">待办任务</div><div class="value red">' + taskTotal + '</div></div>';
+
+  // 本周日志
+  var monday = new Date();
+  monday.setDate(monday.getDate() - monday.getDay() + 1);
+  var friday = new Date(monday);
+  friday.setDate(friday.getDate() + 4);
+  var ws = monday.toISOString().split('T')[0];
+  var we = friday.toISOString().split('T')[0];
+  var weekLogs = await apiGet('/logs', {date_from: ws, date_to: we, page_size: 50});
+  if (weekLogs.code === 0 && weekLogs.data.items.length > 0) {
+    var rows = weekLogs.data.items.map(function(l) {
+      return '<tr><td>' + fmtDate(l.log_date) + '</td><td>' + workTypeTag(l.work_type) + ' ' + changeTypeTag(l.change_type) + '</td><td>' + esc(l.task_title) + '</td><td>' + statusTag(l.status) + '</td></tr>';
+    }).join('');
+    document.getElementById('dashWeekLogs').innerHTML = '<table><tr><th>日期</th><th>类型</th><th>任务</th><th>状态</th></tr>' + rows + '</table>';
+  } else {
+    document.getElementById('dashWeekLogs').innerHTML = '<div class="empty-tip">本周暂无记录</div>';
+  }
+
+  // 即将到期任务
+  var urgentRes = await apiGet('/tasks', {status: '未完成', page_size: 10});
+  if (urgentRes.code === 0 && urgentRes.data.items.length > 0) {
+    var uRows = urgentRes.data.items.map(function(t) {
+      return '<tr><td>' + esc(t.task_title) + '</td><td>' + (t.task_category||'') + '</td><td>' + (t.deadline ? fmtDate(t.deadline) : '无') + '</td><td class="remain-cell">' + remainingTag(t.remaining_days) + '</td></tr>';
+    }).join('');
+    document.getElementById('dashUrgent').innerHTML = '<table><tr><th>任务</th><th>分类</th><th>截止日期</th><th>剩余</th></tr>' + uRows + '</table>';
+  } else {
+    document.getElementById('dashUrgent').innerHTML = '<div class="empty-tip">暂无进行中任务 🎉</div>';
+  }
+}
+
+// ===== 每日工作 =====
+var logFilters = {date_from:'', date_to:'', work_type:'', status:'', keyword:''};
+
+async function renderLogs(el) {
+  var catOpts = allCategories.map(function(c){return '<option value="'+c.id+'">'+esc(c.name)+'</option>';}).join('');
+  var wtOpts = '<option value="">全部</option>' + WORK_TYPES.map(function(t){return '<option value="'+t+'">'+t+'</option>';}).join('');
+  var stOpts = '<option value="">全部</option>' + LOG_STATUSES.map(function(s){return '<option value="'+s.v+'">'+s.l+'</option>';}).join('');
+
+  el.innerHTML = '<div class="card">' +
+    '<div class="filter-bar">' +
+    '<input type="date" id="lf_from" value="'+logFilters.date_from+'" placeholder="开始日期" style="width:140px">' +
+    '<input type="date" id="lf_to" value="'+logFilters.date_to+'" placeholder="结束日期" style="width:140px">' +
+    '<select id="lf_wt" style="width:120px">' + wtOpts + '</select>' +
+    '<select id="lf_st" style="width:100px">' + stOpts + '</select>' +
+    '<input type="text" id="lf_kw" value="'+esc(logFilters.keyword)+'" placeholder="搜索关键词" style="width:160px">' +
+    '<button class="btn btn-primary" onclick="loadLogs(1)">搜索</button>' +
+    '<button class="btn btn-success" onclick="showLogModal()">+ 新增记录</button>' +
+    '</div>' +
+    '<div id="logsTable" class="table-wrap"></div>' +
+    '<div id="logsPage" class="page-nav"></div>' +
+    '</div>';
+
+  document.getElementById('lf_wt').value = logFilters.work_type;
+  document.getElementById('lf_st').value = logFilters.status;
+  loadLogs(1);
+}
+
+async function loadLogs(page) {
+  logPage = page;
+  logFilters.date_from = document.getElementById('lf_from').value;
+  logFilters.date_to = document.getElementById('lf_to').value;
+  logFilters.work_type = document.getElementById('lf_wt').value;
+  logFilters.status = document.getElementById('lf_st').value;
+  logFilters.keyword = document.getElementById('lf_kw').value;
+
+  var params = {page: page, page_size: 20};
+  if (logFilters.date_from) params.date_from = logFilters.date_from;
+  if (logFilters.date_to) params.date_to = logFilters.date_to;
+  if (logFilters.work_type) params.work_type = logFilters.work_type;
+  if (logFilters.status) params.status = logFilters.status;
+  if (logFilters.keyword) params.keyword = logFilters.keyword;
+
+  var res = await apiGet('/logs', params);
+  if (res.code !== 0) { tip('加载失败','error'); return; }
+
+  var items = res.data.items;
+  logTotal = res.data.total;
+
+  if (items.length === 0) {
+    document.getElementById('logsTable').innerHTML = '<div class="empty-tip">暂无记录，点击「+ 新增记录」添加</div>';
+    document.getElementById('logsPage').innerHTML = '';
+    return;
+  }
+
+  var rows = items.map(function(l) {
+    var sapInfo = '';
+    if (l.tcode) sapInfo += '<span class="tag tag-item">T:' + esc(l.tcode) + '</span>';
+    if (l.program_name) sapInfo += '<span class="tag tag-item">P:' + esc(l.program_name) + '</span>';
+    if (l.interface_name) sapInfo += '<span class="tag tag-item">I:' + esc(l.interface_name) + '</span>';
+    if (l.enhancement_name) sapInfo += '<span class="tag tag-item">E:' + esc(l.enhancement_name) + '</span>';
+    if (l.class_name) sapInfo += '<span class="tag tag-item">C:' + esc(l.class_name) + '</span>';
+    if (l.print_name) sapInfo += '<span class="tag tag-item">PR:' + esc(l.print_name) + '</span>';
+
+    return '<tr>' +
+      '<td style="white-space:nowrap">' + fmtDate(l.log_date) + '</td>' +
+      '<td>' + (l.work_type ? workTypeTag(l.work_type) : '') + ' ' + (l.change_type ? changeTypeTag(l.change_type) : '') + '</td>' +
+      '<td style="max-width:300px"><b>' + esc(l.task_title) + '</b>' + (l.task_detail ? '<br><span style="color:#999;font-size:12px">' + esc(l.task_detail).substring(0,80) + '</span>' : '') + '</td>' +
+      '<td>' + (sapInfo || '<span style="color:#ddd">-</span>') + '</td>' +
+      '<td>' + statusTag(l.status) + '</td>' +
+      '<td style="white-space:nowrap"><button class="btn btn-sm" onclick="showLogModal('+l.id+')">编辑</button> <button class="btn btn-sm btn-danger" onclick="delLog('+l.id+')">删除</button></td>' +
+      '</tr>';
+  }).join('');
+
+  document.getElementById('logsTable').innerHTML = '<table><tr><th>日期</th><th>类型</th><th>任务 / 备注</th><th>SAP对象</th><th>状态</th><th>操作</th></tr>' + rows + '</table>';
+
+  // 分页
+  var totalP = Math.ceil(logTotal / 20);
+  var pHtml = '';
+  if (totalP > 1) {
+    pHtml += '<button class="btn btn-sm" ' + (page<=1?'disabled':'onclick="loadLogs('+(page-1)+')"') + '>上一页</button>';
+    pHtml += '<span>第' + page + '/' + totalP + '页 (共' + logTotal + '条)</span>';
+    pHtml += '<button class="btn btn-sm" ' + (page>=totalP?'disabled':'onclick="loadLogs('+(page+1)+')"') + '>下一页</button>';
+  } else {
+    pHtml = '<span>共' + logTotal + '条</span>';
+  }
+  document.getElementById('logsPage').innerHTML = pHtml;
+}
+
+function showLogModal(id) {
+  var isEdit = !!id;
+  var log = isEdit ? null : null;
+
+  var catOpts = allCategories.map(function(c){return '<option value="'+c.id+'">'+esc(c.name)+'</option>';}).join('');
+  var wtOpts = '<option value="">请选择</option>' + WORK_TYPES.map(function(t){return '<option value="'+t+'">'+t+'</option>';}).join('');
+  var ctOpts = '<option value="">请选择</option>' + CHANGE_TYPES.map(function(t){return '<option value="'+t+'">'+t+'</option>';}).join('');
+  var stOpts = LOG_STATUSES.map(function(s){return '<option value="'+s.v+'">'+s.l+'</option>';}).join('');
+
+  var today = new Date().toISOString().split('T')[0];
+
+  var html = '<div class="modal-overlay" onclick="if(event.target===this)this.remove()">' +
+    '<div class="modal"><h3>' + (isEdit?'编辑':'新增') + '工作记录</h3>' +
+    '<div class="form-row"><div class="form-group"><label>日期 <span class="req">*</span></label><input type="date" id="lm_date" value="'+today+'"></div>' +
+    '<div class="form-group"><label>状态</label><select id="lm_status">' + stOpts + '</select></div></div>' +
+    '<div class="form-group"><label>任务标题 <span class="req">*</span></label><input type="text" id="lm_title" placeholder="如：ZFI047 人工分摊金额问题排查"></div>' +
+    '<div class="form-group"><label>备注</label><textarea id="lm_detail" placeholder="任务详情/备注"></textarea></div>' +
+    '<div class="form-group"><label>参考</label><input type="text" id="lm_reference" placeholder="参考信息"></div>' +
+    '<div class="form-row"><div class="form-group"><label>分类</label><select id="lm_cat"><option value="">请选择</option>' + catOpts + '</select></div>' +
+    '<div class="form-group"><label>关联任务项</label><select id="lm_task" onchange="onTaskSelect()"><option value="">请选择</option>' + allTasks.map(function(t){return '<option value="'+t.id+'" data-title="'+esc(t.task_title)+'" data-notes="'+esc(t.notes||'')+'" data-category="'+esc(t.task_category||'')+'">'+esc(t.task_title)+'</option>';}).join('') + '</select></div></div>' +
+    '<div class="sap-fields"><div style="font-size:13px;color:#409eff;margin-bottom:8px;font-weight:500">🔧 SAP 开发信息</div>' +
+    '<div class="form-row"><div class="form-group"><label>类型</label><select id="lm_wt">' + wtOpts + '</select></div>' +
+    '<div class="form-group"><label>新增/修改</label><select id="lm_ct">' + ctOpts + '</select></div></div>' +
+    '<div class="form-row"><div class="form-group"><label>事务码</label><input type="text" id="lm_tcode" placeholder="ZFI047"></div>' +
+    '<div class="form-group"><label>程序名</label><input type="text" id="lm_pname" placeholder="ZPP_PLAN_MANAGEMENT"></div></div>' +
+    '<div class="form-group"><label>接口</label><input type="text" id="lm_iface" placeholder="ZFM_SRM_001、ZFM_SRM_003"></div>' +
+    '<div class="form-group"><label>增强</label><input type="text" id="lm_enh" placeholder="ZE_LE_SHP_DELIVERY_PROC"></div>' +
+    '<div class="form-row"><div class="form-group"><label>类</label><input type="text" id="lm_cls" placeholder="ZCL_XXX"></div>' +
+    '<div class="form-group"><label>打印</label><input type="text" id="lm_print" placeholder="打印表单名"></div></div></div>' +
+    '<div class="modal-footer"><button class="btn" onclick="this.closest(\'.modal-overlay\').remove()">取消</button>' +
+    '<button class="btn btn-primary" onclick="saveLog('+(id||0)+')">保存</button></div></div></div>';
+
+  document.body.insertAdjacentHTML('beforeend', html);
+
+  // 如果是编辑，加载已有数据
+  if (isEdit) {
+    apiGet('/logs/' + id).then(function(res) {
+      if (res.code === 0) {
+        var l = res.data;
+        document.getElementById('lm_date').value = fmtDate(l.log_date);
+        document.getElementById('lm_status').value = l.status;
+        document.getElementById('lm_title').value = l.task_title;
+        document.getElementById('lm_detail').value = l.task_detail || '';
+        document.getElementById('lm_reference').value = l.reference || '';
+        document.getElementById('lm_cat').value = l.category ? l.category.id : '';
+        document.getElementById('lm_task').value = l.task_item ? l.task_item.id : '';
+        document.getElementById('lm_wt').value = l.work_type || '';
+        document.getElementById('lm_ct').value = l.change_type || '';
+        document.getElementById('lm_tcode').value = l.tcode || '';
+        document.getElementById('lm_pname').value = l.program_name || '';
+        document.getElementById('lm_iface').value = l.interface_name || '';
+        document.getElementById('lm_enh').value = l.enhancement_name || '';
+        document.getElementById('lm_cls').value = l.class_name || '';
+        document.getElementById('lm_print').value = l.print_name || '';
+      }
+    });
+  }
+}
+
+function onTaskSelect() {
+  var sel = document.getElementById('lm_task');
+  var opt = sel.options[sel.selectedIndex];
+  if (!opt || !opt.value) return;
+  document.getElementById('lm_title').value = opt.getAttribute('data-title') || '';
+  var notes = opt.getAttribute('data-notes') || '';
+  if (notes) document.getElementById('lm_detail').value = notes;
+  // 根据任务的分类自动匹配工作记录的分类
+  var taskCat = opt.getAttribute('data-category') || '';
+  if (taskCat) {
+    var catSel = document.getElementById('lm_cat');
+    for (var i = 0; i < catSel.options.length; i++) {
+      if (catSel.options[i].text === taskCat) {
+        catSel.selectedIndex = i;
+        break;
+      }
+    }
+  }
+}
+
+async function saveLog(id) {
+  var data = {
+    log_date: document.getElementById('lm_date').value,
+    task_title: document.getElementById('lm_title').value,
+    task_detail: document.getElementById('lm_detail').value || null,
+    reference: document.getElementById('lm_reference').value || null,
+    category_id: document.getElementById('lm_cat').value || null,
+    task_item_id: document.getElementById('lm_task').value || null,
+    status: document.getElementById('lm_status').value,
+    work_type: document.getElementById('lm_wt').value || null,
+    change_type: document.getElementById('lm_ct').value || null,
+    tcode: document.getElementById('lm_tcode').value || null,
+    program_name: document.getElementById('lm_pname').value || null,
+    interface_name: document.getElementById('lm_iface').value || null,
+    enhancement_name: document.getElementById('lm_enh').value || null,
+    class_name: document.getElementById('lm_cls').value || null,
+    print_name: document.getElementById('lm_print').value || null,
+  };
+  if (!data.log_date || !data.task_title) { tip('请填写日期和任务标题','error'); return; }
+  if (data.category_id) data.category_id = parseInt(data.category_id);
+  if (data.task_item_id) data.task_item_id = parseInt(data.task_item_id);
+
+  var res;
+  if (id) {
+    res = await apiPut('/logs/' + id, data);
+  } else {
+    res = await apiPost('/logs', data);
+  }
+  if (res.code === 0) {
+    tip('保存成功');
+    document.querySelector('.modal-overlay').remove();
+    loadLogs(logPage);
+  } else {
+    tip(res.message || '保存失败','error');
+  }
+}
+
+async function delLog(id) {
+  if (!confirm('确认删除此记录？')) return;
+  var res = await apiDel('/logs/' + id);
+  if (res.code === 0) { tip('已删除'); loadLogs(logPage); }
+  else tip(res.message || '删除失败','error');
+}
+
+// ===== 任务项 =====
+var taskFilters = {status:'', task_category:''};
+var taskPage = 1, taskTotal = 0;
+
+async function renderTasks(el) {
+  var catOpts = '<option value="">全部分类</option>' + TASK_CATEGORIES.map(function(c){return '<option value="'+c+'">'+c+'</option>';}).join('');
+  var stOpts = '<option value="">全部状态</option>' + TASK_STATUSES.map(function(s){return '<option value="'+s+'">'+s+'</option>';}).join('');
+
+  el.innerHTML = '<div class="card">' +
+    '<div class="filter-bar">' +
+    '<select id="tf_cat" style="width:150px">' + catOpts + '</select>' +
+    '<select id="tf_st" style="width:100px">' + stOpts + '</select>' +
+    '<button class="btn btn-primary" onclick="loadTasks(1)">筛选</button>' +
+    '<button class="btn btn-success" onclick="showTaskModal()">+ 新增任务</button>' +
+    '</div>' +
+    '<div id="tasksTable" class="table-wrap"></div>' +
+    '<div id="tasksPage" class="page-nav"></div>' +
+    '</div>';
+
+  document.getElementById('tf_cat').value = taskFilters.task_category;
+  document.getElementById('tf_st').value = taskFilters.status;
+  loadTasks(1);
+}
+
+async function loadTasks(page) {
+  taskPage = page;
+  taskFilters.task_category = document.getElementById('tf_cat').value;
+  taskFilters.status = document.getElementById('tf_st').value;
+
+  var params = {page: page, page_size: 20};
+  if (taskFilters.task_category) params.task_category = taskFilters.task_category;
+  if (taskFilters.status) params.status = taskFilters.status;
+
+  var res = await apiGet('/tasks', params);
+  if (res.code !== 0) { tip('加载失败','error'); return; }
+
+  var items = res.data.items;
+  taskTotal = res.data.total;
+
+  if (items.length === 0) {
+    document.getElementById('tasksTable').innerHTML = '<div class="empty-tip">暂无任务</div>';
+    document.getElementById('tasksPage').innerHTML = '';
+    return;
+  }
+
+  var rows = items.map(function(t) {
+    return '<tr>' +
+      '<td style="max-width:360px">' + esc(t.task_title) + (t.notes ? '<br><span style="color:#999;font-size:12px">' + esc(t.notes).substring(0,60) + '</span>' : '') + '</td>' +
+      '<td>' + (t.task_category ? '<span class="tag tag-item">' + esc(t.task_category) + '</span>' : '') + '</td>' +
+      '<td>' + (t.deadline ? fmtDate(t.deadline) : '无期限') + '</td>' +
+      '<td class="remain-cell">' + (t.status==='已完成'?'<span style="color:#67c23a">已完成</span>':t.status==='取消'?'<span style="color:#909399">已取消</span>':remainingTag(t.remaining_days)) + '</td>' +
+      '<td>' + taskStatusTag(t.status) + '</td>' +
+      '<td style="white-space:nowrap"><button class="btn btn-sm" onclick="showTaskModal('+t.id+')">编辑</button> <button class="btn btn-sm btn-danger" onclick="delTask('+t.id+')">删除</button></td>' +
+      '</tr>';
+  }).join('');
+
+  document.getElementById('tasksTable').innerHTML = '<table><tr><th>任务</th><th>分类</th><th>截止日期</th><th>剩余</th><th>状态</th><th>操作</th></tr>' + rows + '</table>';
+
+  // 分页
+  var totalP = Math.ceil(taskTotal / 20);
+  var pHtml = '';
+  if (totalP > 1) {
+    pHtml += '<button class="btn btn-sm" ' + (page<=1?'disabled':'onclick="loadTasks('+(page-1)+')"') + '>上一页</button>';
+    pHtml += '<span>第' + page + '/' + totalP + '页 (共' + taskTotal + '条)</span>';
+    pHtml += '<button class="btn btn-sm" ' + (page>=totalP?'disabled':'onclick="loadTasks('+(page+1)+')"') + '>下一页</button>';
+  } else {
+    pHtml = '<span>共' + taskTotal + '条</span>';
+  }
+  document.getElementById('tasksPage').innerHTML = pHtml;
+}
+
+function showTaskModal(id) {
+  var isEdit = !!id;
+  var catOpts = '<option value="">请选择</option>' + TASK_CATEGORIES.map(function(c){return '<option value="'+c+'">'+c+'</option>';}).join('');
+  var stOpts = TASK_STATUSES.map(function(s){return '<option value="'+s+'">'+s+'</option>';}).join('');
+
+  var html = '<div class="modal-overlay" onclick="if(event.target===this)this.remove()">' +
+    '<div class="modal"><h3>' + (isEdit?'编辑':'新增') + '任务项</h3>' +
+    '<div class="form-group"><label>任务标题 <span class="req">*</span></label><input type="text" id="tm_title" placeholder="任务标题"></div>' +
+    '<div class="form-row"><div class="form-group"><label>截止日期</label><input type="date" id="tm_deadline"></div>' +
+    '<div class="form-group"><label>任务分类</label><select id="tm_cat">' + catOpts + '</select></div></div>' +
+    '<div class="form-row"><div class="form-group"><label>状态</label><select id="tm_status">' + stOpts + '</select></div></div>' +
+    '<div class="form-group"><label>备注</label><textarea id="tm_notes" placeholder="备注"></textarea></div>' +
+    '<div class="modal-footer"><button class="btn" onclick="this.closest(\'.modal-overlay\').remove()">取消</button>' +
+    '<button class="btn btn-primary" onclick="saveTask('+(id||0)+')">保存</button></div></div></div>';
+
+  document.body.insertAdjacentHTML('beforeend', html);
+  if (!isEdit) document.getElementById('tm_status').value = '未完成';
+
+  if (isEdit) {
+    apiGet('/tasks/' + id).then(function(res) {
+      if (res.code === 0) {
+        var t = res.data;
+        document.getElementById('tm_title').value = t.task_title;
+        document.getElementById('tm_deadline').value = t.deadline ? fmtDate(t.deadline) : '';
+        document.getElementById('tm_cat').value = t.task_category || '';
+        document.getElementById('tm_status').value = t.status;
+        document.getElementById('tm_notes').value = t.notes || '';
+      }
+    });
+  }
+}
+
+async function saveTask(id) {
+  var data = {
+    task_title: document.getElementById('tm_title').value,
+    deadline: document.getElementById('tm_deadline').value || null,
+    task_category: document.getElementById('tm_cat').value || null,
+    status: document.getElementById('tm_status').value,
+    notes: document.getElementById('tm_notes').value || null,
+  };
+  if (!data.task_title) { tip('请填写任务标题','error'); return; }
+
+  var res;
+  if (id) {
+    res = await apiPut('/tasks/' + id, data);
+  } else {
+    res = await apiPost('/tasks', data);
+  }
+  if (res.code === 0) {
+    tip('保存成功');
+    document.querySelector('.modal-overlay').remove();
+    loadTasks(taskPage);
+  } else {
+    tip(res.message || '保存失败','error');
+  }
+}
+
+async function delTask(id) {
+  if (!confirm('确认删除此任务？')) return;
+  var res = await apiDel('/tasks/' + id);
+  if (res.code === 0) { tip('已删除'); loadTasks(taskPage); }
+  else tip(res.message || '删除失败','error');
+}
+
+// ===== 待开发项（只读视图，展示所有未完成的任务项） =====
+async function renderBacklog(el) {
+  el.innerHTML = '<div class="card">' +
+    '<div style="margin-bottom:12px;color:#666;font-size:13px">📋 待开发项自动展示所有未完成的任务项，请在「任务项」中新增或修改</div>' +
+    '<div class="filter-bar">' +
+    '<input type="text" id="bl_kw" placeholder="搜索关键词" style="width:200px">' +
+    '<button class="btn btn-primary" onclick="loadBacklog()">搜索</button>' +
+    '</div>' +
+    '<div id="backlogTable" class="table-wrap">' +
+    '</div>' +
+    '</div>';
+  loadBacklog();
+}
+
+async function loadBacklog() {
+  var params = {page_size: 100};
+  var kw = document.getElementById('bl_kw').value;
+  if (kw) params.keyword = kw;
+
+  var res = await apiGet('/backlog', params);
+  if (res.code !== 0) { tip('加载失败','error'); return; }
+
+  var items = res.data.items;
+  if (items.length === 0) {
+    document.getElementById('backlogTable').innerHTML = '<div class="empty-tip">暂无待开发项（所有任务项均已完成或取消）</div>';
+    return;
+  }
+
+  var rows = items.map(function(b) {
+    var statusStyle = b.status === '未完成' ? 'color:#e67e22' : b.status === '挂起' ? 'color:#95a5a6' : 'color:#333';
+    return '<tr>' +
+      '<td style="max-width:500px">' + esc(b.task_title) + (b.notes ? '<br><span style="color:#999;font-size:12px">' + esc(b.notes).substring(0,80) + '</span>' : '') + '</td>' +
+      '<td>' + (b.task_category || '-') + '</td>' +
+      '<td style="' + statusStyle + '">' + esc(b.status) + '</td>' +
+      '<td>' + (b.deadline ? fmtDate(b.deadline) : '无期限') + '</td>' +
+      '<td class="remain-cell">' + remainingTag(b.remaining_days) + '</td>' +
+      '</tr>';
+  }).join('');
+
+  document.getElementById('backlogTable').innerHTML = '<table><tr><th>任务项</th><th>分类</th><th>状态</th><th>截止日期</th><th>剩余</th></tr>' + rows + '</table>';
+}
+
+// ===== 分类配置 =====
+async function renderCategories(el) {
+  var res = await apiGet('/categories');
+  var items = res.code === 0 ? res.data : [];
+  var rows = items.map(function(c) {
+    return '<tr><td>' + c.id + '</td><td>' + esc(c.name) + '</td><td>' + c.sort_order + '</td><td>' + (c.is_active?'<span class="tag tag-done">启用</span>':'<span class="tag tag-cancelled">停用</span>') + '</td><td><button class="btn btn-sm" onclick="editCategory('+c.id+')">编辑</button></td></tr>';
+  }).join('');
+  el.innerHTML = '<div class="card"><div class="card-title">分类配置</div><button class="btn btn-success" onclick="showCatModal()" style="margin-bottom:16px">+ 新增分类</button><table><tr><th>ID</th><th>名称</th><th>排序</th><th>状态</th><th>操作</th></tr>' + rows + '</table></div>';
+}
+function showCatModal(id) {
+  var isEdit = !!id;
+  var html = '<div class="modal-overlay" onclick="if(event.target===this)this.remove()"><div class="modal"><h3>'+(isEdit?'编辑':'新增')+'分类</h3><div class="form-group"><label>名称</label><input type="text" id="cm_name"></div><div class="form-group"><label>排序</label><input type="number" id="cm_sort" value="0"></div><div class="modal-footer"><button class="btn" onclick="this.closest(\'.modal-overlay\').remove()">取消</button><button class="btn btn-primary" onclick="saveCat('+(id||0)+')">保存</button></div></div></div>';
+  document.body.insertAdjacentHTML('beforeend', html);
+  if (isEdit) apiGet('/categories/'+id).then(function(r){if(r.code===0){document.getElementById('cm_name').value=r.data.name;document.getElementById('cm_sort').value=r.data.sort_order;}});
+}
+async function saveCat(id) {
+  var data = {name:document.getElementById('cm_name').value,sort_order:parseInt(document.getElementById('cm_sort').value)||0};
+  if(!data.name){tip('请填写分类名称','error');return;}
+  var res = id ? await apiPut('/categories/'+id,data) : await apiPost('/categories',data);
+  if(res.code===0){tip('保存成功');document.querySelector('.modal-overlay').remove();loadCategories();renderCategories(document.getElementById('mainContent'));}
+  else tip(res.message||'失败','error');
+}
+function editCategory(id){showCatModal(id);}
+
+// ===== 周报 =====
+async function renderReports(el) {
+  var today = new Date();
+  var monday = new Date(today);
+  monday.setDate(today.getDate() - today.getDay() + 1);
+  var ws = monday.toISOString().split('T')[0];
+
+  el.innerHTML = '<div class="card"><div class="card-title">周报生成</div>' +
+    '<div class="filter-bar"><label>周一起始日期：</label><input type="date" id="rp_ws" value="'+ws+'">' +
+    '<button class="btn btn-primary" onclick="genReport()">生成周报</button></div>' +
+    '<div id="reportContent" class="report-content" style="display:none"></div></div>' +
+    '<div class="card"><div class="card-title">历史周报</div><div id="reportList" class="empty-tip">加载中...</div></div>';
+
+  loadReportList();
+}
+
+async function genReport() {
+  var ws = document.getElementById('rp_ws').value;
+  if (!ws) { tip('请选择日期','error'); return; }
+  var res = await apiPost('/reports/generate', {week_start: ws});
+  if (res.code === 0 && res.data) {
+    document.getElementById('reportContent').style.display = 'block';
+    document.getElementById('reportContent').textContent = res.data.content || '无内容';
+    tip('周报已生成');
+    loadReportList();
+  } else {
+    tip(res.message || '生成失败','error');
+  }
+}
+
+async function loadReportList() {
+  var res = await apiGet('/reports');
+  var items = res.code === 0 && res.data ? res.data : [];
+  if (items.length === 0) {
+    document.getElementById('reportList').innerHTML = '<div class="empty-tip">暂无周报</div>';
+    return;
+  }
+  var rows = items.map(function(r) {
+    var st = r.status==='draft'?'<span class="tag tag-pending">草稿</span>':'<span class="tag tag-done">已提交</span>';
+    return '<tr><td>' + fmtDate(r.week_start) + ' ~ ' + fmtDate(r.week_end) + '</td><td>' + st + '</td><td>' + (r.generated_at?fmtDate(r.generated_at):'-') + '</td><td><button class="btn btn-sm" onclick="viewReport('+r.id+')">查看</button></td></tr>';
+  }).join('');
+  document.getElementById('reportList').innerHTML = '<table><tr><th>周期</th><th>状态</th><th>生成时间</th><th>操作</th></tr>' + rows + '</table>';
+}
+
+async function viewReport(id) {
+  var res = await apiGet('/reports/' + id);
+  if (res.code === 0) {
+    document.getElementById('reportContent').style.display = 'block';
+    document.getElementById('reportContent').textContent = res.data.content || '无内容';
+  }
+}
+
+// ===== 启动 =====
+init();
+</script>
+</body>
+</html>
