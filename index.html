@@ -111,7 +111,7 @@ var logPage = 1, logTotal = 0;
 // 枚举选项
 var WORK_TYPES = ['Bug','Report','功能','增强','接口','学习','培训','打印','问题排查'];
 var CHANGE_TYPES = ['新增','修改'];
-var TASK_CATEGORIES = ['运维工单','Bug工单','临时任务','迭代项','SRM项目','培训','紧急插入临时任务','按需采购','年度任务','绩效','STO项目'];
+// TASK_CATEGORIES 从 allCategories 动态生成，不再硬编码
 var TASK_STATUSES = ['已完成','未完成','挂起','取消'];
 var LOG_STATUSES = [{v:'doing',l:'进行中'},{v:'done',l:'已完成'},{v:'blocked',l:'阻塞'},{v:'cancelled',l:'已取消'}];
 
@@ -205,7 +205,9 @@ document.querySelectorAll('.nav-item').forEach(function(el) {
   });
 });
 
-function renderPage() {
+async function renderPage() {
+  // 每次切页面时刷新分类和任务数据，避免缓存导致下拉选项过时
+  await Promise.all([loadCategories(), loadAllTasks()]);
   var el = document.getElementById('mainContent');
   switch(currentPage) {
     case 'dashboard': renderDashboard(el); break;
@@ -517,7 +519,7 @@ var taskFilters = {status:'', task_category:''};
 var taskPage = 1, taskTotal = 0;
 
 async function renderTasks(el) {
-  var catOpts = '<option value="">全部分类</option>' + TASK_CATEGORIES.map(function(c){return '<option value="'+c+'">'+c+'</option>';}).join('');
+  var catOpts = '<option value="">全部分类</option>' + allCategories.filter(function(c){return c.is_active;}).map(function(c){return '<option value="'+esc(c.name)+'">'+esc(c.name)+'</option>';}).join('');
   var stOpts = '<option value="">全部状态</option>' + TASK_STATUSES.map(function(s){return '<option value="'+s+'">'+s+'</option>';}).join('');
 
   el.innerHTML = '<div class="card">' +
@@ -585,7 +587,7 @@ async function loadTasks(page) {
 
 function showTaskModal(id) {
   var isEdit = !!id;
-  var catOpts = '<option value="">请选择</option>' + TASK_CATEGORIES.map(function(c){return '<option value="'+c+'">'+c+'</option>';}).join('');
+  var catOpts = '<option value="">请选择</option>' + allCategories.filter(function(c){return c.is_active;}).map(function(c){return '<option value="'+esc(c.name)+'">'+esc(c.name)+'</option>';}).join('');
   var stOpts = TASK_STATUSES.map(function(s){return '<option value="'+s+'">'+s+'</option>';}).join('');
 
   var html = '<div class="modal-overlay" onclick="if(event.target===this)this.remove()">' +
