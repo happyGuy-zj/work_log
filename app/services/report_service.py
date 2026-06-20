@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
-from app.models import DailyLog, WeeklyReport, Project
+from app.models import DailyLog, WeeklyReport
 
 
 def get_week_range(week_start) -> tuple:
@@ -25,59 +25,83 @@ def generate_report(db: Session, user_id: int, week_start) -> WeeklyReport:
         .all()
     )
 
-    # 按分类分组
-    category_groups: dict[str, list] = {}
+    # 按分类 + 任务合并（同一任务多天记录合并为一条）
+    # 合并key：优先用 task_item_id，否则用 task_title
+    category_groups: dict[str, dict[str, dict]] = {}
     total_hours = 0.0
 
     for log in logs:
         hours = float(log.time_spent) if log.time_spent else 0
         total_hours += hours
-        entry = {
-            "title": log.task_title,
-            "detail": log.task_detail or "",
-            "date": str(log.log_date),
-            "hours": hours,
-            "status": log.status,
-        }
+
         if log.category:
             cname = log.category.name
         else:
             cname = "其他"
-        if cname not in category_groups:
-            category_groups[cname] = []
-        category_groups[cname].append(entry)
 
-    # 生成周报内容（匹配用户习惯格式）
+        if cname not in category_groups:
+            category_groups[cname] = {}
+
+        # 合并key：关联同一任务项 或 标题完全相同
+        merge_key = str(log.task_item_id) if log.task_item_id else log.task_title
+
+        if merge_key in category_groups[cname]:
+            # 合并到已有条目
+            existing = category_groups[cname][merge_key]
+            existing["hours"] += hours
+            existing["days"].add(str(log.log_date))
+            # 合并详情：直接收集，输出时统一做片段级去重
+            if log.task_detail:
+                existing["details"].append(log.task_detail)
+            # 状态取最新的（done优先于doing，doing优先于blocked）
+            status_priority = {"done": 3, "doing": 2, "blocked": 1, "cancelled": 0}
+            if status_priority.get(log.status, 0) > status_priority.get(existing["status"], 0):
+                existing["status"] = log.status
+            # 合并work_type（去重）
+            if log.work_type and log.work_type not in existing["work_types"]:
+                existing["work_types"].append(log.work_type)
+            # 合并change_type
+            if log.change_type and log.change_type not in existing["change_types"]:
+                existing["change_types"].append(log.change_type)
+        else:
+            category_groups[cname][merge_key] = {
+                "title": log.task_title,
+                "details": [log.task_detail] if log.task_detail else [],
+                "days": {str(log.log_date)},
+                "hours": hours,
+                "status": log.status,
+                "work_types": [log.work_type] if log.work_type else [],
+                "change_types": [log.change_type] if log.change_type else [],
+            }
+
+    # 生成周报内容
     lines = []
 
-    for cname, entries in category_groups.items():
+    for cname, tasks in category_groups.items():
         lines.append(cname)
-        for idx, e in enumerate(entries, 1):
-            # 拼接：序号. 任务标题
+        for idx, (merge_key, e) in enumerate(tasks.items(), 1):
+            # 标题
             item = f"{idx}. {e['title']}"
-            # 拼接详情/进展
             detail_parts = []
-            if e["detail"]:
-                detail_parts.append(e["detail"])
-            # 状态用中文补充
-            status_text = ""
-            if e["status"] == "done":
-                status_text = "已完成"
-            elif e["status"] == "doing":
-                status_text = "进行中"
-            elif e["status"] == "blocked":
-                status_text = "阻塞"
-            # 如果详情中已经包含了状态描述，就不重复追加
-            if status_text and detail_parts and status_text not in detail_parts[0]:
-                detail_parts[0] = detail_parts[0].rstrip("。；;,；") + "，" + status_text
-            elif status_text and not detail_parts:
-                detail_parts.append(status_text)
-            # 耗时
-            if e["hours"] > 0:
-                detail_parts.append(f"耗时{e['hours']}h")
 
-            if detail_parts:
-                item += "（" + "；".join(detail_parts) + "）"
+            # 详情合并：拆成小片段去重后重新组合
+            if e["details"]:
+                # 把每条备注按中文逗号、顿号、分号拆成小片段
+                all_fragments = []
+                for d in e["details"]:
+                    # 按常见分隔符拆分
+                    import re
+                    parts = re.split(r'[,，、；;]\s*', d.strip())
+                    all_fragments.extend(p for p in parts if p)
+                # 去重（保持首次出现顺序）
+                seen = set()
+                unique_fragments = []
+                for f in all_fragments:
+                    if f not in seen:
+                        seen.add(f)
+                        unique_fragments.append(f)
+                merged_detail = "，".join(unique_fragments)
+                item += "（" + merged_detail + "）"
             item += "；"
             lines.append(item)
         lines.append("")
